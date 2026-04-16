@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Post Call Analytics - Kapiva</title>
+  <style>
+    :root {
+      --primary: #A4A854;
+      --primary-light: #E8EAD3;
+      --primary-dark: #7D8040;
+      --bg-main: #FAFAFA;
+      --bg-white: #FFFFFF;
+      --bg-sidebar: #FAFAF5;
+      --text-primary: #1A1A1A;
+      --text-secondary: #666666;
+      --text-muted: #999999;
+      --border: #E5E5E5;
+      --border-light: #F0F0F0;
+      --green: #22C55E;
+      --green-light: #DCFCE7;
+      --red: #EF4444;
+      --red-light: #FEE2E2;
+      --yellow: #F59E0B;
+      --yellow-light: #FEF3C7;
+      --purple: #7C3AED;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; background: var(--bg-main); color: var(--text-primary); }
+
+    /* Layout */
+    .app { display: flex; min-height: 100vh; }
+    
+    /* Sidebar */
+    .sidebar { width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border); position: fixed; height: 100vh; overflow-y: auto; }
+    .logo { padding: 20px 24px; border-bottom: 1px solid var(--border); }
+    .logo-text { font-size: 20px; font-weight: 700; letter-spacing: 2px; }
+    .logo-text span { border: 2px solid var(--text-primary); padding: 2px 6px; }
+    .nav { padding: 16px 12px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer; margin-bottom: 4px; }
+    .nav-item:hover { background: var(--primary-light); }
+    .nav-item.active { background: var(--primary-light); color: var(--primary-dark); font-weight: 500; border-left: 4px solid var(--primary); margin-left: -4px; }
+    .nav-icon { width: 20px; height: 20px; }
+
+    /* Main */
+    .main { flex: 1; margin-left: 240px; }
+    .header { background: var(--bg-white); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .header-title { font-size: 18px; font-weight: 600; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .user-info { text-align: right; }
+    .user-name { font-weight: 500; }
+    .user-role { font-size: 12px; color: var(--text-muted); }
+    .avatar { width: 40px; height: 40px; background: var(--purple); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; }
+    .content { padding: 24px 32px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 8px; margin-bottom: 24px; background: var(--bg-white); padding: 8px; border-radius: 999px; width: fit-content; box-shadow: var(--shadow); }
+    .tab { padding: 10px 24px; border-radius: 999px; cursor: pointer; font-weight: 500; color: var(--text-secondary); }
+    .tab:hover { color: var(--text-primary); }
+    .tab.active { background: var(--primary); color: white; }
+
+    /* Filters */
+    .filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; padding: 16px 20px; background: var(--bg-white); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .filter-select { padding: 8px 32px 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; appearance: none; min-width: 140px; font-size: 13px; }
+
+    /* Info Bar */
+    .info-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: var(--primary-light); border-radius: var(--radius); margin-bottom: 16px; color: var(--primary-dark); font-weight: 500; }
+    .summary-card { background: var(--primary-light); border-radius: var(--radius); padding: 12px 20px; margin-bottom: 16px; color: var(--primary-dark); }
+
+    /* Metrics */
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .metric { background: var(--bg-white); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); border: 1px solid var(--border-light); }
+    .metric-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+    .metric-value { font-size: 28px; font-weight: 600; }
+    .metric-sub { font-size: 12px; margin-top: 8px; }
+
+    /* Section */
+    .section { margin-bottom: 28px; }
+    .section-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; }
+    .section-label { font-size: 12px; color: var(--text-muted); font-weight: 400; margin-left: 8px; }
+
+    /* Card */
+    .card { background: var(--bg-white); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border-light); overflow: hidden; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 12px 14px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; background: var(--bg-main); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 12px 14px; border-bottom: 1px solid var(--border-light); white-space: nowrap; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover { background: #FAFAFA; }
+
+    /* Badge */
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+    .badge-green { background: var(--green-light); color: #166534; }
+    .badge-yellow { background: var(--yellow-light); color: #92400E; }
+    .badge-red { background: var(--red-light); color: #991B1B; }
+    .zone-green { color: var(--green); font-weight: 500; }
+    .zone-yellow { color: var(--yellow); font-weight: 500; }
+    .zone-red { color: var(--red); font-weight: 500; }
+
+    /* Subtabs */
+    .subtabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+    .subtab { padding: 12px 20px; cursor: pointer; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .subtab:hover { color: var(--text-primary); }
+    .subtab.active { color: var(--primary-dark); border-bottom-color: var(--primary); font-weight: 500; }
+
+    /* Play Button */
+    .play-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-light); border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--primary-dark); font-size: 12px; }
+    .play-btn:hover { background: var(--primary); color: white; }
+    .play-btn.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+    /* Toggle */
+    .toggle { width: 44px; height: 24px; background: #d1d5db; border-radius: 12px; position: relative; cursor: pointer; flex-shrink: 0; }
+    .toggle.on { background: var(--primary); }
+    .toggle::after { content: ''; position: absolute; width: 20px; height: 20px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    .toggle.on::after { left: 22px; }
+
+    /* Link */
+    .link { color: var(--primary-dark); cursor: pointer; font-weight: 500; }
+    .link:hover { text-decoration: underline; }
+
+    /* AOI */
+    .aoi-text { font-size: 12px; color: var(--text-secondary); line-height: 1.6; white-space: normal; max-width: 300px; }
+
+    /* Expand */
+    .expand-btn { font-size: 12px; color: var(--primary-dark); cursor: pointer; padding: 12px 16px; border-top: 1px solid var(--border-light); }
+    .detail-row { display: none; }
+    .detail-row.open { display: table-row; }
+    .detail-row td { background: var(--bg-main); padding: 16px; }
+
+    /* Param Grid */
+    .param-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .param-box { background: var(--bg-white); border-radius: var(--radius-sm); padding: 12px; border: 1px solid var(--border-light); }
+    .param-name { font-weight: 600; font-size: 12px; margin-bottom: 8px; color: var(--text-primary); }
+    .param-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+    .param-label { color: var(--text-muted); }
+
+    /* Settings */
+    .settings-section { background: var(--bg-white); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow); }
+    .settings-title { font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border-light); }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-label { font-size: 13px; }
+    .settings-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Profile */
+    .back-btn { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--primary-dark); cursor: pointer; margin-bottom: 16px; }
+    .profile-header { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; padding: 24px; background: var(--bg-white); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .profile-avatar { width: 64px; height: 64px; background: var(--red-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 600; color: var(--red); }
+    .profile-info h3 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .profile-info p { color: var(--text-secondary); font-size: 13px; margin-bottom: 8px; }
+    .profile-badges { display: flex; gap: 8px; }
+
+    /* Views */
+    .view { display: none; }
+    .view.active { display: block; }
+    .subview { display: none; }
+    .subview.active { display: block; }
+
+    /* Hidden Section */
+    .hidden-section { opacity: 0.5; }
+    .hidden-notice { padding: 40px; text-align: center; color: var(--text-muted); }
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .status-on { background: var(--green); }
+    .status-off { background: var(--red); }
+
+    .data-note { font-size: 11px; color: var(--text-muted); padding: 10px 16px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo"><div class="logo-text"><span>KAPIVA</span></div></div>
+      <nav class="nav">
+        <div class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>CS/HCT Booking</div>
+        <div class="nav-item active"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-3 3"/></svg>Post Call Analytics</div>
+        <div class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Doctors List</div>
+        <div class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>Help</div>
+        <div class="nav-item"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>My Profile</div>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="header">
+        <div class="header-title">Post Call Analytics</div>
+        <div class="header-right">
+          <div class="user-info"><div class="user-name">Tushar Choudhary</div><div class="user-role">Admin</div></div>
+          <div class="avatar">T</div>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab('doctor')">Doctor</div>
+          <div class="tab" onclick="switchTab('teamlead')">Team Lead</div>
+          <div class="tab" onclick="switchTab('admin')">Admin</div>
+          <div class="tab" onclick="switchTab('settings')">⚙ Settings</div>
+        </div>
+
+        <!-- ==================== DOCTOR VIEW ==================== -->
+        <div id="doctor" class="view active">
+          <div class="info-bar">
+            <span>👨‍⚕️ Showing for: <strong>Dr. Kruti Bhavsar (Prof136)</strong></span>
+            <span>Team Lead: Dr. Kalpana</span>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Overall Performance <span class="section-label">Last 4 weeks aggregated</span></div>
+            <div class="metrics">
+              <div class="metric"><div class="metric-label">Final Rating</div><div class="metric-value zone-green">4.5</div><div class="metric-sub"><span class="badge badge-green">Green Zone</span></div></div>
+              <div class="metric"><div class="metric-label">Consultations</div><div class="metric-value">184</div></div>
+              <div class="metric"><div class="metric-label">Audits</div><div class="metric-value">118</div></div>
+              <div class="metric"><div class="metric-label">CES</div><div class="metric-value">4.5</div></div>
+              <div class="metric"><div class="metric-label">CSS</div><div class="metric-value">4.5</div></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Operational Hygiene</div>
+            <div class="card"><div class="table-wrap">
+              <table>
+                <tr><th>Team Lead</th><th>Doctor Name</th><th>Doc ID</th><th>Consultations</th><th>Slot Adherence</th><th>Dial Frequency</th><th>Rx &lt; Threshold</th></tr>
+                <tr><td>Dr. Kalpana</td><td>Dr. Kruti Bhavsar</td><td>Prof136</td><td>184</td><td><span class="zone-green">95.1%</span></td><td><span class="zone-green">2.95</span></td><td><span class="zone-green">4.8%</span></td></tr>
+              </table>
+            </div></div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Quality Ratings</div>
+            <div class="card"><div class="table-wrap">
+              <table>
+                <tr><th>Team Lead</th><th>Doctor Name</th><th>Doc ID</th><th>Audits</th><th>CES</th><th>CSS</th><th>Final Rating</th></tr>
+                <tr><td>Dr. Kalpana</td><td>Dr. Kruti Bhavsar</td><td>Prof136</td><td>118</td><td>4.5</td><td>4.5</td><td><span class="badge badge-green">4.5</span></td></tr>
+              </table>
+            </div></div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Final Rating Week-on-Week</div>
+            <div class="card"><div class="table-wrap">
+              <table>
+                <tr><th>Doctor Name</th><th>Doc ID</th><th colspan="2">CW-4</th><th colspan="2">CW-3</th><th colspan="2">CW-2</th><th colspan="2">CW-1</th><th colspan="2">CW-0</th></tr>
+                <tr><th></th><th></th><th>Audits</th><th>Rating</th><th>Audits</th><th>Rating</th><th>Audits</th><th>Rating</th><th>Audits</th><th>Rating</th><th>Audits</th><th>Rating</th></tr>
+                <tr><td>Dr. Kruti Bhavsar</td><td>Prof136</td><td>24</td><td>4.4</td><td>28</td><td>4.5</td><td>30</td><td>4.6</td><td>20</td><td>4.5</td><td>16</td><td>4.5</td></tr>
+              </table>
+            </div>
+            <div class="data-note">Total audits: 24+28+30+20+16 = 118</div>
+            </div>
+          </div>
+
+          <div class="section" id="sec-doctor-params">
+            <div class="section-title">All Parameters View <span style="font-size:11px;margin-left:8px"><span class="status-dot status-off" id="dot-doctor-params"></span><span id="lbl-doctor-params">Hidden by Admin</span></span></div>
+            <div class="card" id="card-doctor-params"><div class="hidden-notice">This section is hidden by administrator</div></div>
+          </div>
+
+          <div class="section" id="sec-doctor-wow">
+            <div class="section-title">Parameter Wise Week-on-Week <span style="font-size:11px;margin-left:8px"><span class="status-dot status-off" id="dot-doctor-wow"></span><span id="lbl-doctor-wow">Hidden by Admin</span></span></div>
+            <div class="card" id="card-doctor-wow"><div class="hidden-notice">This section is hidden by administrator</div></div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Call Level AOI (Top 10 & Bottom 10 by Final Rating)</div>
+            <div class="card"><div class="table-wrap">
+              <table>
+                <tr><th>Play</th><th>UCID</th><th>Therapy</th><th>Concern</th><th>Milestone</th><th>Rating</th><th>AOI</th></tr>
+                <tr><td><button class="play-btn" data-role="doctor">▶</button></td><td>19722177467859001</td><td>Women's Health</td><td>PCOS</td><td>M1</td><td><span class="badge badge-green">4.8</span></td><td class="aoi-text">• Excellent coverage of all parameters</td></tr>
+                <tr><td><button class="play-btn" data-role="doctor">▶</button></td><td>19722177467859002</td><td>Gut Health</td><td>Digestion</td><td>M2</td><td><span class="badge badge-green">4.7</span></td><td class="aoi-text">• Good engagement throughout</td></tr>
+                <tr><td><button class="play-btn" data-role="doctor">▶</button></td><td>19722177467859003</td><td>Hair Health</td><td>Hair Fall</td><td>M1</td><td><span class="badge badge-red">3.2</span></td><td class="aoi-text">• Missed comorbidities inquiry<br>• Dosage communication unclear</td></tr>
+              </table>
+            </div>
+            <div class="expand-btn">Show more calls ↓</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== TEAM LEAD VIEW ==================== -->
+        <div id="teamlead" class="view">
+          <div class="filters">
+            <div class="filter-group"><div class="filter-label">Date Range</div><select class="filter-select"><option>Last 4 weeks</option></select></div>
+            <div class="filter-group"><div class="filter-label">Doctor</div><select class="filter-select"><option>All Doctors</option><option>Dr. Kruti Bhavsar</option><option>Dr. Satinder Rusetra</option><option>Dr. Amit Verma</option><option>Dr. Bhumika Chauhan</option><option>Dr. Priya Sharma</option></select></div>
+            <div class="filter-group"><div class="filter-label">Zone</div><select class="filter-select" id="tl-zone" onchange="filterTLZone()"><option value="all">All Zones</option><option value="green">Green</option><option value="yellow">Yellow</option><option value="red">Red</option></select></div>
+            <div class="filter-group"><div class="filter-label">Therapy</div><select class="filter-select"><option>All Therapies</option></select></div>
+            <div class="filter-group"><div class="filter-label">Concern</div><select class="filter-select"><option>All Concerns</option></select></div>
+            <div class="filter-group"><div class="filter-label">Milestone</div><select class="filter-select"><option>All</option></select></div>
+          </div>
+
+          <div id="tl-summary" class="summary-card" style="display:none"></div>
+
+          <div class="subtabs">
+            <div class="subtab active" onclick="switchSubTab('tl','agg')">Team Aggregated</div>
+            <div class="subtab" onclick="switchSubTab('tl','doc')">Doctor Wise</div>
+          </div>
+
+          <!-- Team Aggregated -->
+          <div id="tl-agg" class="subview active">
+            <div class="section">
+              <div class="section-title">Operational Hygiene (Team Level)</div>
+              <div class="card"><div class="table-wrap">
+                <table>
+                  <tr><th>Team Lead</th><th>Doctors</th><th>Consultations</th><th>Slot Adherence</th><th>Dial Frequency</th><th>Rx %</th></tr>
+                  <tr><td>Dr. Kalpana</td><td id="tl-docs">5</td><td id="tl-consults">901</td><td id="tl-slot"><span class="zone-green">91.2%</span></td><td id="tl-dial"><span class="zone-green">2.5</span></td><td id="tl-rx"><span class="zone-yellow">10.2%</span></td></tr>
+                </table>
+              </div></div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Quality Ratings (Team Level)</div>
+              <div class="card"><div class="table-wrap">
+                <table>
+                  <tr><th>Team Lead</th><th>Doctors</th><th>Audits</th><th>CES</th><th>CSS</th><th>Final Rating</th></tr>
+                  <tr><td>Dr. Kalpana</td><td id="tl-docs2">5</td><td id="tl-audits">581</td><td id="tl-ces">3.9</td><td id="tl-css">4.0</td><td id="tl-final"><span class="badge badge-yellow">3.9</span></td></tr>
+                </table>
+              </div></div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Final Rating Week-on-Week (Team Level)</div>
+              <div class="card"><div class="table-wrap">
+                <table>
+                  <tr><th>Team Lead</th><th>Doctors</th><th colspan="2">CW-4</th><th colspan="2">CW-3</th><th colspan="2">CW-2</th><th colspan="2">CW-1</th><th colspan="2">CW-0</th></tr>
+                  <tr><th></th><th></th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th></tr>
+                  <tr><td>Dr. Kalpana</td><td>5</td><td>120</td><td>3.8</td><td>125</td><td>3.9</td><td>130</td><td>3.9</td><td>110</td><td>4.0</td><td>96</td><td>3.9</td></tr>
+                </table>
+              </div>
+              <div class="data-note">Total audits: 120+125+130+110+96 = 581</div>
+              </div>
+            </div>
+
+            <div class="section" id="sec-team-params">
+              <div class="section-title">All Parameters View (Team Level) <span style="font-size:11px;margin-left:8px"><span class="status-dot status-off" id="dot-team-params"></span><span id="lbl-team-params">Hidden by Admin</span></span></div>
+              <div class="card" id="card-team-params"><div class="hidden-notice">This section is hidden by administrator</div></div>
+            </div>
+
+            <div class="section" id="sec-team-wow">
+              <div class="section-title">Parameter Wise WoW (Team Level) <span style="font-size:11px;margin-left:8px"><span class="status-dot status-off" id="dot-team-wow"></span><span id="lbl-team-wow">Hidden by Admin</span></span></div>
+              <div class="card" id="card-team-wow"><div class="hidden-notice">This section is hidden by administrator</div></div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Call Level Detail</div>
+              <div class="card"><div class="table-wrap">
+                <table id="tl-calls">
+                  <tr><th>Play</th><th>UCID</th><th>Doctor</th><th>Zone</th><th>Therapy</th><th>Concern</th><th>Milestone</th><th>Rating</th><th>AOI</th></tr>
+                  <tr class="zone-row green"><td><button class="play-btn" data-role="teamlead">▶</button></td><td>197221...781</td><td>Dr. Kruti Bhavsar</td><td><span class="badge badge-green">Green</span></td><td>Chronic</td><td>Diabetes</td><td>M1</td><td><span class="badge badge-green">4.6</span></td><td class="aoi-text">• Excellent consultation</td></tr>
+                  <tr class="zone-row green"><td><button class="play-btn" data-role="teamlead">▶</button></td><td>197221...782</td><td>Dr. Satinder Rusetra</td><td><span class="badge badge-green">Green</span></td><td>Chronic</td><td>BP Mgmt</td><td>M2</td><td><span class="badge badge-green">4.3</span></td><td class="aoi-text">• Good protocol adherence</td></tr>
+                  <tr class="zone-row yellow"><td><button class="play-btn" data-role="teamlead">▶</button></td><td>197221...783</td><td>Dr. Amit Verma</td><td><span class="badge badge-yellow">Yellow</span></td><td>Acute</td><td>Diabetes</td><td>M1</td><td><span class="badge badge-yellow">3.7</span></td><td class="aoi-text">• Follow-up unclear<br>• Lifestyle brief</td></tr>
+                  <tr class="zone-row red"><td><button class="play-btn" data-role="teamlead">▶</button></td><td>197221...784</td><td>Dr. Bhumika Chauhan</td><td><span class="badge badge-red">Red</span></td><td>Chronic</td><td>Diabetes</td><td>M1</td><td><span class="badge badge-red">2.9</span></td><td class="aoi-text">• Missed medication check<br>• No comorbidity</td></tr>
+                  <tr class="zone-row red"><td><button class="play-btn" data-role="teamlead">▶</button></td><td>197221...785</td><td>Dr. Priya Sharma</td><td><span class="badge badge-red">Red</span></td><td>Chronic</td><td>BP Mgmt</td><td>M2</td><td><span class="badge badge-red">3.1</span></td><td class="aoi-text">• Dosage unclear<br>• No follow-up</td></tr>
+                </table>
+              </div>
+              <div class="expand-btn">Show more calls ↓</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Doctor Wise -->
+          <div id="tl-doc" class="subview">
+            <div class="section">
+              <div class="section-title">Operational Hygiene (Per Doctor)</div>
+              <div class="card"><div class="table-wrap">
+                <table id="tl-doc-hyg">
+                  <tr><th>Team Lead</th><th>Doctor</th><th>Doc ID</th><th>Zone</th><th>Consultations</th><th>Slot Adh</th><th>Dial Freq</th><th>Rx %</th></tr>
+                  <tr class="zone-row green"><td>Dr. Kalpana</td><td>Dr. Kruti Bhavsar</td><td>Prof136</td><td><span class="badge badge-green">Green</span></td><td>184</td><td><span class="zone-green">95.1%</span></td><td><span class="zone-green">2.95</span></td><td><span class="zone-green">4.8%</span></td></tr>
+                  <tr class="zone-row green"><td>Dr. Kalpana</td><td>Dr. Satinder Rusetra</td><td>Prof130</td><td><span class="badge badge-green">Green</span></td><td>220</td><td><span class="zone-green">97.1%</span></td><td><span class="zone-green">2.6</span></td><td><span class="zone-green">4.2%</span></td></tr>
+                  <tr class="zone-row yellow"><td>Dr. Kalpana</td><td>Dr. Amit Verma</td><td>Prof145</td><td><span class="badge badge-yellow">Yellow</span></td><td>165</td><td><span class="zone-yellow">88.5%</span></td><td><span class="zone-green">2.4</span></td><td><span class="zone-yellow">13.1%</span></td></tr>
+                  <tr class="zone-row red"><td>Dr. Kalpana</td><td>Dr. Bhumika Chauhan</td><td>Prof107</td><td><span class="badge badge-red">Red</span></td><td>190</td><td><span class="zone-red">78.1%</span></td><td><span class="zone-yellow">2.1</span></td><td><span class="zone-red">18.2%</span></td></tr>
+                  <tr class="zone-row red"><td>Dr. Kalpana</td><td>Dr. Priya Sharma</td><td>Prof152</td><td><span class="badge badge-red">Red</span></td><td>142</td><td><span class="zone-red">72.3%</span></td><td><span class="zone-red">1.7</span></td><td><span class="zone-red">22.5%</span></td></tr>
+                </table>
+              </div>
+              <div class="data-note">Total: 184+220+165+190+142 = 901 consultations</div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Quality Ratings (Per Doctor)</div>
+              <div class="card"><div class="table-wrap">
+                <table id="tl-doc-qual">
+                  <tr><th>Team Lead</th><th>Doctor</th><th>Doc ID</th><th>Audits</th><th>CES</th><th>CSS</th><th>Final Rating</th><th>Zone</th></tr>
+                  <tr class="zone-row green"><td>Dr. Kalpana</td><td>Dr. Kruti Bhavsar</td><td>Prof136</td><td>118</td><td>4.5</td><td>4.5</td><td>4.5</td><td><span class="badge badge-green">Green</span></td></tr>
+                  <tr class="zone-row green"><td>Dr. Kalpana</td><td>Dr. Satinder Rusetra</td><td>Prof130</td><td>140</td><td>4.2</td><td>4.3</td><td>4.2</td><td><span class="badge badge-green">Green</span></td></tr>
+                  <tr class="zone-row yellow"><td>Dr. Kalpana</td><td>Dr. Amit Verma</td><td>Prof145</td><td>95</td><td>3.7</td><td>3.9</td><td>3.8</td><td><span class="badge badge-yellow">Yellow</span></td></tr>
+                  <tr class="zone-row red"><td>Dr. Kalpana</td><td>Dr. Bhumika Chauhan</td><td>Prof107</td><td>140</td><td>3.2</td><td>3.4</td><td>3.3</td><td><span class="badge badge-red">Red</span></td></tr>
+                  <tr class="zone-row red"><td>Dr. Kalpana</td><td>Dr. Priya Sharma</td><td>Prof152</td><td>88</td><td>3.0</td><td>3.2</td><td>3.1</td><td><span class="badge badge-red">Red</span></td></tr>
+                </table>
+              </div>
+              <div class="data-note">Total: 118+140+95+140+88 = 581 audits</div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Final Rating Week-on-Week (Per Doctor)</div>
+              <div class="card"><div class="table-wrap">
+                <table id="tl-doc-wow">
+                  <tr><th>Doctor</th><th>Doc ID</th><th>Zone</th><th colspan="2">CW-4</th><th colspan="2">CW-3</th><th colspan="2">CW-2</th><th colspan="2">CW-1</th><th colspan="2">CW-0</th></tr>
+                  <tr><th></th><th></th><th></th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th></tr>
+                  <tr class="zone-row green"><td>Dr. Kruti Bhavsar</td><td>Prof136</td><td><span class="badge badge-green">Grn</span></td><td>24</td><td>4.4</td><td>28</td><td>4.5</td><td>30</td><td>4.6</td><td>20</td><td>4.5</td><td>16</td><td>4.5</td></tr>
+                  <tr class="zone-row green"><td>Dr. Satinder Rusetra</td><td>Prof130</td><td><span class="badge badge-green">Grn</span></td><td>28</td><td>4.1</td><td>32</td><td>4.2</td><td>35</td><td>4.3</td><td>25</td><td>4.2</td><td>20</td><td>4.2</td></tr>
+                  <tr class="zone-row yellow"><td>Dr. Amit Verma</td><td>Prof145</td><td><span class="badge badge-yellow">Ylw</span></td><td>18</td><td>3.6</td><td>20</td><td>3.7</td><td>22</td><td>3.9</td><td>18</td><td>3.8</td><td>17</td><td>3.8</td></tr>
+                  <tr class="zone-row red"><td>Dr. Bhumika Chauhan</td><td>Prof107</td><td><span class="badge badge-red">Red</span></td><td>28</td><td>3.2</td><td>30</td><td>3.3</td><td>32</td><td>3.2</td><td>28</td><td>3.4</td><td>22</td><td>3.3</td></tr>
+                  <tr class="zone-row red"><td>Dr. Priya Sharma</td><td>Prof152</td><td><span class="badge badge-red">Red</span></td><td>22</td><td>2.9</td><td>15</td><td>3.2</td><td>11</td><td>2.9</td><td>19</td><td>3.2</td><td>21</td><td>3.1</td></tr>
+                </table>
+              </div></div>
+            </div>
+
+            <div class="section" id="sec-doc-params">
+              <div class="section-title">All Parameters View (Per Doctor) <span style="font-size:11px;margin-left:8px"><span class="status-dot status-off" id="dot-doc-params"></span><span id="lbl-doc-params">Hidden by Admin</span></span></div>
+              <div class="card" id="card-doc-params"><div class="hidden-notice">This section is hidden by administrator</div></div>
+            </div>
+
+            <div class="section" id="sec-doc-wow">
+              <div class="section-title">Parameter Wise WoW (Per Doctor) <span style="font-size:11px;margin-left:8px"><span class="status-dot status-off" id="dot-doc-wow"></span><span id="lbl-doc-wow">Hidden by Admin</span></span></div>
+              <div class="card" id="card-doc-wow"><div class="hidden-notice">This section is hidden by administrator</div></div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Call Level Detail (Per Doctor)</div>
+              <div class="card"><div class="table-wrap">
+                <table id="tl-doc-calls">
+                  <tr><th>Play</th><th>UCID</th><th>Doctor</th><th>Zone</th><th>Therapy</th><th>Concern</th><th>Milestone</th><th>Rating</th><th>AOI</th></tr>
+                  <tr class="zone-row green"><td><button class="play-btn" data-role="teamlead">▶</button></td><td>197221...801</td><td>Dr. Kruti Bhavsar</td><td><span class="badge badge-green">Green</span></td><td>Chronic</td><td>Diabetes</td><td>M1</td><td><span class="badge badge-green">4.6</span></td><td class="aoi-text">• Excellent consultation</td></tr>
+                  <tr class="zone-row green"><td><button class="play-btn" data-role="teamlead">▶</button></td><td>197221...802</td><td>Dr. Satinder Rusetra</td><td><span class="badge badge-green">Green</span></td><td>Chronic</td><td>BP Mgmt</td><td>M2</td><td><span class="badge badge-green">4.4</span></td><td class="aoi-text">• All protocols followed</td></tr>
+                  <tr class="zone-row yellow"><td><button class="play-btn" data-role="teamlead">▶</button></td><td>197221...803</td><td>Dr. Amit Verma</td><td><span class="badge badge-yellow">Yellow</span></td><td>Acute</td><td>Diabetes</td><td>M1</td><td><span class="badge badge-yellow">3.6</span></td><td class="aoi-text">• Follow-up unclear</td></tr>
+                  <tr class="zone-row red"><td><button class="play-btn" data-role="teamlead">▶</button></td><td>197221...804</td><td>Dr. Bhumika Chauhan</td><td><span class="badge badge-red">Red</span></td><td>Chronic</td><td>Diabetes</td><td>M1</td><td><span class="badge badge-red">2.8</span></td><td class="aoi-text">• Missed medication check</td></tr>
+                  <tr class="zone-row red"><td><button class="play-btn" data-role="teamlead">▶</button></td><td>197221...805</td><td>Dr. Priya Sharma</td><td><span class="badge badge-red">Red</span></td><td>Chronic</td><td>BP Mgmt</td><td>M3</td><td><span class="badge badge-red">3.0</span></td><td class="aoi-text">• No follow-up scheduled</td></tr>
+                </table>
+              </div>
+              <div class="expand-btn">Show more calls ↓</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== ADMIN VIEW ==================== -->
+        <div id="admin" class="view">
+          <div id="admin-main">
+            <div class="filters">
+              <div class="filter-group"><div class="filter-label">Team Lead</div><select class="filter-select"><option>All Team Leads</option><option>Dr. Kalpana</option><option>Dr. Lata</option><option>Dr. Meena</option><option>Dr. Ravi</option><option>Dr. Sunita</option></select></div>
+              <div class="filter-group"><div class="filter-label">Doctor</div><select class="filter-select"><option>All Doctors</option></select></div>
+              <div class="filter-group"><div class="filter-label">Zone</div><select class="filter-select" id="admin-zone" onchange="filterAdminZone()"><option value="all">All Zones</option><option value="green">Green</option><option value="yellow">Yellow</option><option value="red">Red</option></select></div>
+              <div class="filter-group"><div class="filter-label">Therapy</div><select class="filter-select"><option>All</option></select></div>
+              <div class="filter-group"><div class="filter-label">Concern</div><select class="filter-select"><option>All</option></select></div>
+              <div class="filter-group"><div class="filter-label">Milestone</div><select class="filter-select"><option>All</option></select></div>
+            </div>
+
+            <div id="admin-summary" class="summary-card" style="display:none"></div>
+
+            <div class="section">
+              <div class="section-title">Organization Overview</div>
+              <div class="metrics">
+                <div class="metric"><div class="metric-label">Team Leads</div><div class="metric-value">5</div></div>
+                <div class="metric"><div class="metric-label">Total Doctors</div><div class="metric-value" id="admin-docs">87</div></div>
+                <div class="metric"><div class="metric-label">Consultations</div><div class="metric-value" id="admin-consults">12,450</div></div>
+                <div class="metric"><div class="metric-label">Audits</div><div class="metric-value" id="admin-audits">8,812</div></div>
+                <div class="metric"><div class="metric-label">Org Rating</div><div class="metric-value" id="admin-rating">3.9</div><div class="metric-sub"><span class="badge badge-yellow">Yellow Zone</span></div></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Zone Distribution</div>
+              <div class="metrics" style="display:grid;grid-template-columns:repeat(3,1fr);">
+                <div class="metric" style="border-left:4px solid var(--green)"><div class="metric-label">Green Zone</div><div class="metric-value zone-green" id="admin-green">52</div><div class="metric-sub" id="admin-green-pct">59.8%</div></div>
+                <div class="metric" style="border-left:4px solid var(--yellow)"><div class="metric-label">Yellow Zone</div><div class="metric-value zone-yellow" id="admin-yellow">23</div><div class="metric-sub" id="admin-yellow-pct">26.4%</div></div>
+                <div class="metric" style="border-left:4px solid var(--red)"><div class="metric-label">Red Zone</div><div class="metric-value zone-red" id="admin-red">12</div><div class="metric-sub" id="admin-red-pct">13.8%</div></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Team Lead Comparison — Hygiene <span id="hyg-label" class="section-label"></span></div>
+              <div class="card"><div class="table-wrap">
+                <table>
+                  <tr><th>Team Lead</th><th>Doctors</th><th>Consultations</th><th>Slot Adh</th><th>Dial Freq</th><th>Rx %</th></tr>
+                  <tr id="hyg-kalpana"><td>Dr. Kalpana</td><td>18</td><td>2,124</td><td><span class="zone-green">91%</span></td><td><span class="zone-green">2.4</span></td><td><span class="zone-yellow">10%</span></td></tr>
+                  <tr id="hyg-lata"><td>Dr. Lata</td><td>20</td><td>2,380</td><td><span class="zone-green">89%</span></td><td><span class="zone-green">2.3</span></td><td><span class="zone-yellow">11%</span></td></tr>
+                  <tr id="hyg-meena"><td>Dr. Meena</td><td>16</td><td>1,820</td><td><span class="zone-yellow">85%</span></td><td><span class="zone-green">2.5</span></td><td><span class="zone-yellow">12%</span></td></tr>
+                  <tr id="hyg-ravi"><td>Dr. Ravi</td><td>15</td><td>1,650</td><td><span class="zone-red">78%</span></td><td><span class="zone-yellow">2.1</span></td><td><span class="zone-red">18%</span></td></tr>
+                  <tr id="hyg-sunita"><td>Dr. Sunita</td><td>18</td><td>1,838</td><td><span class="zone-green">93%</span></td><td><span class="zone-green">2.6</span></td><td><span class="zone-green">5%</span></td></tr>
+                </table>
+              </div></div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Team Lead Comparison — Quality <span id="qual-label" class="section-label"></span></div>
+              <div class="card"><div class="table-wrap">
+                <table>
+                  <tr><th>Team Lead</th><th>Doctors</th><th>Audits</th><th>CES</th><th>CSS</th><th>Final Rating</th></tr>
+                  <tr id="qual-kalpana"><td>Dr. Kalpana</td><td>18</td><td>2,124</td><td>4.2</td><td>4.1</td><td><span class="badge badge-green">4.1</span></td></tr>
+                  <tr id="qual-lata"><td>Dr. Lata</td><td>20</td><td>2,380</td><td>4.0</td><td>3.9</td><td><span class="badge badge-green">4.0</span></td></tr>
+                  <tr id="qual-meena"><td>Dr. Meena</td><td>16</td><td>1,820</td><td>3.8</td><td>3.7</td><td><span class="badge badge-yellow">3.7</span></td></tr>
+                  <tr id="qual-ravi"><td>Dr. Ravi</td><td>15</td><td>1,650</td><td>3.4</td><td>3.5</td><td><span class="badge badge-red">3.4</span></td></tr>
+                  <tr id="qual-sunita"><td>Dr. Sunita</td><td>18</td><td>1,838</td><td>4.3</td><td>4.2</td><td><span class="badge badge-green">4.2</span></td></tr>
+                </table>
+              </div></div>
+            </div>
+
+            <div class="section" id="red-section">
+              <div class="section-title">Red Zone Doctors (Needs Attention)</div>
+              <div class="card"><div class="table-wrap">
+                <table>
+                  <tr><th>Doctor</th><th>Doc ID</th><th>Team Lead</th><th>Red Reason</th><th>Final Rating</th><th>Action</th></tr>
+                  <tr><td>Dr. Bhumika Chauhan</td><td>Prof107</td><td>Dr. Kalpana</td><td><span class="badge badge-red">Slot: 78%</span></td><td>3.3</td><td class="link" onclick="showProfile('Bhumika Chauhan','Prof107','Kalpana','BC',3.3,190,140,3.2,3.4,'Slot Adh: 78%')">View profile →</td></tr>
+                  <tr><td>Dr. Priya Sharma</td><td>Prof152</td><td>Dr. Kalpana</td><td><span class="badge badge-red">Rating: 3.1</span></td><td>3.1</td><td class="link" onclick="showProfile('Priya Sharma','Prof152','Kalpana','PS',3.1,142,88,3.0,3.2,'Rating: 3.1')">View profile →</td></tr>
+                  <tr><td>Dr. Ajay Kumar</td><td>Prof142</td><td>Dr. Ravi</td><td><span class="badge badge-red">Slot: 72%</span></td><td>3.8</td><td class="link" onclick="showProfile('Ajay Kumar','Prof142','Ravi','AK',3.8,155,92,3.9,3.7,'Slot Adh: 72%')">View profile →</td></tr>
+                  <tr><td>Dr. Ramesh Patel</td><td>Prof148</td><td>Dr. Ravi</td><td><span class="badge badge-red">Dial: 1.6</span></td><td>3.9</td><td class="link" onclick="showProfile('Ramesh Patel','Prof148','Ravi','RP',3.9,168,105,4.0,3.8,'Dial Freq: 1.6')">View profile →</td></tr>
+                  <tr><td>Dr. Neha Gupta</td><td>Prof161</td><td>Dr. Meena</td><td><span class="badge badge-red">Rx: 22%</span></td><td>3.4</td><td class="link" onclick="showProfile('Neha Gupta','Prof161','Meena','NG',3.4,138,82,3.3,3.5,'Rx: 22%')">View profile →</td></tr>
+                </table>
+              </div></div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Call Level Detail</div>
+              <div class="card"><div class="table-wrap">
+                <table id="admin-calls">
+                  <tr><th>Play</th><th>UCID</th><th>Doctor</th><th>Zone</th><th>Therapy</th><th>Concern</th><th>Rating</th><th>AOI</th><th>Detail</th></tr>
+                  <tr class="zone-row green"><td><button class="play-btn" data-role="admin">▶</button></td><td>197221...901</td><td>Dr. Kruti</td><td><span class="badge badge-green">Grn</span></td><td>Chronic</td><td>Diabetes</td><td><span class="badge badge-green">4.6</span></td><td class="aoi-text">• Excellent</td><td class="link" onclick="toggleDetail('d1')">Params ↓</td></tr>
+                  <tr id="d1" class="detail-row"><td colspan="9"><div class="param-grid"><div class="param-box"><div class="param-name">Ongoing Med</div><div class="param-row"><span class="param-label">Rating:</span><span class="badge badge-green">5</span></div><div class="param-row"><span class="param-label">Reasoning:</span><span>Thorough</span></div><div class="param-row"><span class="param-label">AOI:</span><span>N/A</span></div></div><div class="param-box"><div class="param-name">Comorbidities</div><div class="param-row"><span class="param-label">Rating:</span><span class="badge badge-green">5</span></div><div class="param-row"><span class="param-label">Reasoning:</span><span>All checked</span></div><div class="param-row"><span class="param-label">AOI:</span><span>N/A</span></div></div><div class="param-box"><div class="param-name">Follow-up</div><div class="param-row"><span class="param-label">Rating:</span><span class="badge badge-green">5</span></div><div class="param-row"><span class="param-label">Reasoning:</span><span>Clear</span></div><div class="param-row"><span class="param-label">AOI:</span><span>N/A</span></div></div></div></td></tr>
+                  <tr class="zone-row green"><td><button class="play-btn" data-role="admin">▶</button></td><td>197221...902</td><td>Dr. Satinder</td><td><span class="badge badge-green">Grn</span></td><td>Chronic</td><td>BP Mgmt</td><td><span class="badge badge-green">4.3</span></td><td class="aoi-text">• Good adherence</td><td class="link" onclick="toggleDetail('d2')">Params ↓</td></tr>
+                  <tr id="d2" class="detail-row"><td colspan="9"><div class="param-grid"><div class="param-box"><div class="param-name">Follow-up</div><div class="param-row"><span class="param-label">Rating:</span><span class="badge badge-green">4</span></div><div class="param-row"><span class="param-label">Reasoning:</span><span>Scheduled</span></div><div class="param-row"><span class="param-label">AOI:</span><span>N/A</span></div></div></div></td></tr>
+                  <tr class="zone-row yellow"><td><button class="play-btn" data-role="admin">▶</button></td><td>197221...903</td><td>Dr. Amit</td><td><span class="badge badge-yellow">Ylw</span></td><td>Acute</td><td>Diabetes</td><td><span class="badge badge-yellow">3.7</span></td><td class="aoi-text">• Follow-up unclear</td><td class="link" onclick="toggleDetail('d3')">Params ↓</td></tr>
+                  <tr id="d3" class="detail-row"><td colspan="9"><div class="param-grid"><div class="param-box"><div class="param-name">Follow-up</div><div class="param-row"><span class="param-label">Rating:</span><span class="badge badge-yellow">3</span></div><div class="param-row"><span class="param-label">Reasoning:</span><span>Not confirmed</span></div><div class="param-row"><span class="param-label">AOI:</span><span>Confirm date</span></div></div></div></td></tr>
+                  <tr class="zone-row red"><td><button class="play-btn" data-role="admin">▶</button></td><td>197221...904</td><td>Dr. Bhumika</td><td><span class="badge badge-red">Red</span></td><td>Chronic</td><td>Diabetes</td><td><span class="badge badge-red">2.9</span></td><td class="aoi-text">• Missed med check</td><td class="link" onclick="toggleDetail('d4')">Params ↓</td></tr>
+                  <tr id="d4" class="detail-row"><td colspan="9"><div class="param-grid"><div class="param-box"><div class="param-name">Ongoing Med</div><div class="param-row"><span class="param-label">Rating:</span><span class="badge badge-red">2</span></div><div class="param-row"><span class="param-label">Reasoning:</span><span>Not asked</span></div><div class="param-row"><span class="param-label">AOI:</span><span>Always check</span></div></div><div class="param-box"><div class="param-name">Comorbidities</div><div class="param-row"><span class="param-label">Rating:</span><span class="badge badge-red">2</span></div><div class="param-row"><span class="param-label">Reasoning:</span><span>No screening</span></div><div class="param-row"><span class="param-label">AOI:</span><span>Screen all</span></div></div></div></td></tr>
+                  <tr class="zone-row red"><td><button class="play-btn" data-role="admin">▶</button></td><td>197221...905</td><td>Dr. Priya</td><td><span class="badge badge-red">Red</span></td><td>Chronic</td><td>BP Mgmt</td><td><span class="badge badge-red">3.0</span></td><td class="aoi-text">• No follow-up</td><td class="link" onclick="toggleDetail('d5')">Params ↓</td></tr>
+                  <tr id="d5" class="detail-row"><td colspan="9"><div class="param-grid"><div class="param-box"><div class="param-name">Follow-up</div><div class="param-row"><span class="param-label">Rating:</span><span class="badge badge-red">2</span></div><div class="param-row"><span class="param-label">Reasoning:</span><span>Not scheduled</span></div><div class="param-row"><span class="param-label">AOI:</span><span>Always schedule</span></div></div></div></td></tr>
+                </table>
+              </div>
+              <div class="expand-btn">Show more calls ↓</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Doctor Profile Page -->
+          <div id="admin-profile" style="display:none">
+            <div class="back-btn" onclick="hideProfile()">← Back to Dashboard</div>
+            <div class="profile-header">
+              <div class="profile-avatar" id="p-avatar">BC</div>
+              <div class="profile-info">
+                <h3 id="p-name">Dr. Bhumika Chauhan</h3>
+                <p id="p-id">Prof107 • Team Lead: Dr. Kalpana</p>
+                <div class="profile-badges">
+                  <span class="badge badge-red" id="p-zone">Red Zone</span>
+                  <span class="badge badge-red" id="p-reason">Slot Adh: 78%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Overall Performance <span class="section-label">Last 4 weeks aggregated</span></div>
+              <div class="metrics">
+                <div class="metric"><div class="metric-label">Final Rating</div><div class="metric-value zone-red" id="p-rating">3.3</div><div class="metric-sub"><span class="badge badge-red">Red Zone</span></div></div>
+                <div class="metric"><div class="metric-label">Consultations</div><div class="metric-value" id="p-consults">190</div></div>
+                <div class="metric"><div class="metric-label">Audits</div><div class="metric-value" id="p-audits">140</div></div>
+                <div class="metric"><div class="metric-label">CES</div><div class="metric-value" id="p-ces">3.2</div></div>
+                <div class="metric"><div class="metric-label">CSS</div><div class="metric-value" id="p-css">3.4</div></div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Operational Hygiene</div>
+              <div class="card"><div class="table-wrap">
+                <table>
+                  <tr><th>Team Lead</th><th>Doctor Name</th><th>Doc ID</th><th>Consultations</th><th>Slot Adh</th><th>Dial Freq</th><th>Rx %</th></tr>
+                  <tr><td id="p-tl">Dr. Kalpana</td><td id="p-doc-name">Dr. Bhumika Chauhan</td><td id="p-doc-id">Prof107</td><td id="p-doc-consults">190</td><td><span class="zone-red">78.1%</span></td><td><span class="zone-yellow">2.1</span></td><td><span class="zone-red">18.2%</span></td></tr>
+                </table>
+              </div></div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Quality Ratings</div>
+              <div class="card"><div class="table-wrap">
+                <table>
+                  <tr><th>Team Lead</th><th>Doctor Name</th><th>Doc ID</th><th>Audits</th><th>CES</th><th>CSS</th><th>Final Rating</th></tr>
+                  <tr><td id="p-q-tl">Dr. Kalpana</td><td id="p-q-name">Dr. Bhumika Chauhan</td><td id="p-q-id">Prof107</td><td id="p-q-audits">140</td><td id="p-q-ces">3.2</td><td id="p-q-css">3.4</td><td id="p-q-final"><span class="badge badge-red">3.3</span></td></tr>
+                </table>
+              </div></div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Final Rating Week-on-Week</div>
+              <div class="card"><div class="table-wrap">
+                <table>
+                  <tr><th>Doctor Name</th><th>Doc ID</th><th colspan="2">CW-4</th><th colspan="2">CW-3</th><th colspan="2">CW-2</th><th colspan="2">CW-1</th><th colspan="2">CW-0</th></tr>
+                  <tr><th></th><th></th><th>Audits</th><th>Rating</th><th>Audits</th><th>Rating</th><th>Audits</th><th>Rating</th><th>Audits</th><th>Rating</th><th>Audits</th><th>Rating</th></tr>
+                  <tr><td id="p-wow-name">Dr. Bhumika Chauhan</td><td id="p-wow-id">Prof107</td><td>28</td><td>3.2</td><td>30</td><td>3.3</td><td>32</td><td>3.2</td><td>28</td><td>3.4</td><td>22</td><td>3.3</td></tr>
+                </table>
+              </div>
+              <div class="data-note">Total audits: 28+30+32+28+22 = 140</div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Call Level AOI</div>
+              <div class="info-bar"><span>Showing for: <strong id="p-call-name">Dr. Bhumika Chauhan (Prof107)</strong></span></div>
+              <div class="card"><div class="table-wrap">
+                <table>
+                  <tr><th>Play</th><th>UCID</th><th>Therapy</th><th>Concern</th><th>Milestone</th><th>Rating</th><th>AOI</th></tr>
+                  <tr><td><button class="play-btn" data-role="admin">▶</button></td><td>19722177467859111</td><td>Chronic</td><td>Diabetes Care</td><td>M1</td><td><span class="badge badge-red">2.8</span></td><td class="aoi-text">• Did not ask about medications<br>• Missed comorbidity screening<br>• No follow-up</td></tr>
+                  <tr><td><button class="play-btn" data-role="admin">▶</button></td><td>19722177467859222</td><td>Chronic</td><td>BP Management</td><td>M2</td><td><span class="badge badge-red">3.1</span></td><td class="aoi-text">• Risk not explained<br>• Dosage unclear</td></tr>
+                  <tr><td><button class="play-btn" data-role="admin">▶</button></td><td>19722177467859333</td><td>Acute</td><td>Diabetes Care</td><td>M1</td><td><span class="badge badge-yellow">3.4</span></td><td class="aoi-text">• Medicine adherence not reinforced</td></tr>
+                </table>
+              </div>
+              <div class="expand-btn">Show all calls ↓</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== SETTINGS ==================== -->
+        <div id="settings" class="view">
+          <div class="settings-section">
+            <div class="settings-title">🎧 Audio Playback Settings</div>
+            <div class="settings-row"><div><div class="settings-label">Doctor can listen to call audio</div><div class="settings-desc">Allow doctors to play call recordings</div></div><div class="toggle on" data-key="audio-doctor" onclick="toggleSetting(this)"></div></div>
+            <div class="settings-row"><div><div class="settings-label">Team Lead can listen to call audio</div><div class="settings-desc">Allow team leads to play call recordings</div></div><div class="toggle on" data-key="audio-teamlead" onclick="toggleSetting(this)"></div></div>
+            <div class="settings-row"><div><div class="settings-label">Admin can listen to call audio</div><div class="settings-desc">Allow admins to play call recordings</div></div><div class="toggle on" data-key="audio-admin" onclick="toggleSetting(this)"></div></div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-title">📊 Section Visibility — Doctors</div>
+            <div class="settings-row"><div><div class="settings-label">Show "All Parameters View" to Doctors</div><div class="settings-desc">Display 12-parameter breakdown in Doctor's view</div></div><div class="toggle" data-key="vis-doctor-params" onclick="toggleSetting(this)"></div></div>
+            <div class="settings-row"><div><div class="settings-label">Show "Parameter Wise WoW" to Doctors</div><div class="settings-desc">Display parameter trends in Doctor's view</div></div><div class="toggle" data-key="vis-doctor-wow" onclick="toggleSetting(this)"></div></div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-title">👥 Section Visibility — Team Leads</div>
+            <div class="settings-row"><div><div class="settings-label">Show "All Parameters View" (Team Level)</div><div class="settings-desc">Display parameter breakdown at team level</div></div><div class="toggle" data-key="vis-team-params" onclick="toggleSetting(this)"></div></div>
+            <div class="settings-row"><div><div class="settings-label">Show "Parameter Wise WoW" (Team Level)</div><div class="settings-desc">Display parameter trends at team level</div></div><div class="toggle" data-key="vis-team-wow" onclick="toggleSetting(this)"></div></div>
+            <div class="settings-row"><div><div class="settings-label">Show "All Parameters View" (Per Doctor)</div><div class="settings-desc">Display parameter breakdown per doctor</div></div><div class="toggle" data-key="vis-doc-params" onclick="toggleSetting(this)"></div></div>
+            <div class="settings-row"><div><div class="settings-label">Show "Parameter Wise WoW" (Per Doctor)</div><div class="settings-desc">Display parameter trends per doctor</div></div><div class="toggle" data-key="vis-doc-wow" onclick="toggleSetting(this)"></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const settings = { 'audio-doctor': true, 'audio-teamlead': true, 'audio-admin': true, 'vis-doctor-params': false, 'vis-doctor-wow': false, 'vis-team-params': false, 'vis-team-wow': false, 'vis-doc-params': false, 'vis-doc-wow': false };
+    const saved = localStorage.getItem('pcaSettings');
+    if (saved) Object.assign(settings, JSON.parse(saved));
+
+    function applySettings() {
+      document.querySelectorAll('.toggle[data-key]').forEach(el => el.classList.toggle('on', settings[el.dataset.key]));
+      document.querySelectorAll('.play-btn[data-role="doctor"]').forEach(btn => btn.classList.toggle('disabled', !settings['audio-doctor']));
+      document.querySelectorAll('.play-btn[data-role="teamlead"]').forEach(btn => btn.classList.toggle('disabled', !settings['audio-teamlead']));
+      document.querySelectorAll('.play-btn[data-role="admin"]').forEach(btn => btn.classList.toggle('disabled', !settings['audio-admin']));
+
+      const visMap = {
+        'vis-doctor-params': { sec: 'sec-doctor-params', card: 'card-doctor-params', dot: 'dot-doctor-params', lbl: 'lbl-doctor-params', content: '<div class="table-wrap"><table><tr><th>Parameter</th><th>Audits</th><th>Avg Rating</th></tr><tr><td>Ongoing Medication</td><td>118</td><td><span class="zone-green">4.6</span></td></tr><tr><td>Comorbidities</td><td>118</td><td><span class="zone-green">4.4</span></td></tr><tr><td>Lifestyle & Dietary</td><td>118</td><td><span class="zone-green">4.5</span></td></tr><tr><td>3-6 Month Benefit</td><td>118</td><td><span class="zone-green">4.3</span></td></tr><tr><td>Medicine Adherence</td><td>118</td><td><span class="zone-green">4.6</span></td></tr><tr><td>Risk of Poor Condition</td><td>118</td><td><span class="zone-green">4.4</span></td></tr><tr><td>Follow-up Communication</td><td>118</td><td><span class="zone-green">4.5</span></td></tr><tr><td>Dosage Communication</td><td>118</td><td><span class="zone-green">4.7</span></td></tr><tr><td>Context Setting</td><td>118</td><td><span class="zone-green">4.5</span></td></tr><tr><td>Engagement</td><td>118</td><td><span class="zone-green">4.6</span></td></tr><tr><td>Fostered Comfort & Trust</td><td>118</td><td><span class="zone-green">4.4</span></td></tr><tr><td>Establishment of Credibility</td><td>118</td><td><span class="zone-green">4.5</span></td></tr></table></div>' },
+        'vis-doctor-wow': { sec: 'sec-doctor-wow', card: 'card-doctor-wow', dot: 'dot-doctor-wow', lbl: 'lbl-doctor-wow', content: '<div class="table-wrap"><table><tr><th>Parameter</th><th colspan="2">CW-4</th><th colspan="2">CW-3</th><th colspan="2">CW-2</th><th colspan="2">CW-1</th><th colspan="2">CW-0</th></tr><tr><th></th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th></tr><tr><td>Ongoing Medication</td><td>24</td><td>4.5</td><td>28</td><td>4.6</td><td>30</td><td>4.7</td><td>20</td><td>4.6</td><td>16</td><td>4.6</td></tr><tr><td>Comorbidities</td><td>24</td><td>4.3</td><td>28</td><td>4.4</td><td>30</td><td>4.5</td><td>20</td><td>4.4</td><td>16</td><td>4.4</td></tr><tr><td>Lifestyle & Dietary</td><td>24</td><td>4.4</td><td>28</td><td>4.5</td><td>30</td><td>4.6</td><td>20</td><td>4.5</td><td>16</td><td>4.5</td></tr></table></div>' },
+        'vis-team-params': { sec: 'sec-team-params', card: 'card-team-params', dot: 'dot-team-params', lbl: 'lbl-team-params', content: '<div class="table-wrap"><table><tr><th>Parameter</th><th>Audits</th><th>Avg Rating</th></tr><tr><td>Ongoing Medication</td><td>581</td><td>4.2</td></tr><tr><td>Comorbidities</td><td>581</td><td>3.9</td></tr><tr><td>Lifestyle & Dietary</td><td>581</td><td>4.1</td></tr><tr><td>3-6 Month Benefit</td><td>581</td><td>4.0</td></tr><tr><td>Medicine Adherence</td><td>581</td><td>3.8</td></tr><tr><td>Risk of Poor</td><td>581</td><td>4.2</td></tr><tr><td>Follow-up</td><td>581</td><td>4.0</td></tr><tr><td>Dosage</td><td>581</td><td>4.1</td></tr><tr><td>Context Setting</td><td>581</td><td>4.0</td></tr><tr><td>Engagement</td><td>581</td><td>4.2</td></tr><tr><td>Comfort & Trust</td><td>581</td><td>3.9</td></tr><tr><td>Credibility</td><td>581</td><td>4.1</td></tr></table></div>' },
+        'vis-team-wow': { sec: 'sec-team-wow', card: 'card-team-wow', dot: 'dot-team-wow', lbl: 'lbl-team-wow', content: '<div class="table-wrap"><table><tr><th>Parameter</th><th colspan="2">CW-4</th><th colspan="2">CW-3</th><th colspan="2">CW-2</th><th colspan="2">CW-1</th><th colspan="2">CW-0</th></tr><tr><th></th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th><th>Aud</th><th>Rtg</th></tr><tr><td>Ongoing Medication</td><td>120</td><td>4.0</td><td>125</td><td>4.1</td><td>130</td><td>4.2</td><td>110</td><td>4.2</td><td>96</td><td>4.2</td></tr><tr><td>Comorbidities</td><td>120</td><td>3.8</td><td>125</td><td>3.9</td><td>130</td><td>3.9</td><td>110</td><td>3.9</td><td>96</td><td>3.9</td></tr></table></div>' },
+        'vis-doc-params': { sec: 'sec-doc-params', card: 'card-doc-params', dot: 'dot-doc-params', lbl: 'lbl-doc-params', content: '<div class="table-wrap"><table><tr><th>Doctor</th><th>Ongoing Med</th><th>Comorbid</th><th>Lifestyle</th><th>3-6 Month</th><th>Med Adh</th><th>Risk</th><th>Follow-up</th><th>Dosage</th><th>Context</th><th>Engage</th><th>Trust</th><th>Credib</th></tr><tr><td>Dr. Kruti Bhavsar</td><td>4.6</td><td>4.4</td><td>4.5</td><td>4.3</td><td>4.6</td><td>4.4</td><td>4.5</td><td>4.7</td><td>4.5</td><td>4.6</td><td>4.4</td><td>4.5</td></tr><tr><td>Dr. Satinder Rusetra</td><td>4.3</td><td>4.1</td><td>4.2</td><td>4.0</td><td>4.3</td><td>4.1</td><td>4.2</td><td>4.4</td><td>4.2</td><td>4.3</td><td>4.1</td><td>4.2</td></tr></table></div>' },
+        'vis-doc-wow': { sec: 'sec-doc-wow', card: 'card-doc-wow', dot: 'dot-doc-wow', lbl: 'lbl-doc-wow', content: '<div class="table-wrap"><table><tr><th>Doctor</th><th>Parameter</th><th>CW-4</th><th>CW-3</th><th>CW-2</th><th>CW-1</th><th>CW-0</th></tr><tr><td>Dr. Kruti</td><td>Ongoing Med</td><td>4.5</td><td>4.6</td><td>4.7</td><td>4.6</td><td>4.6</td></tr><tr><td>Dr. Kruti</td><td>Comorbidities</td><td>4.3</td><td>4.4</td><td>4.5</td><td>4.4</td><td>4.4</td></tr></table></div>' }
+      };
+
+      Object.keys(visMap).forEach(key => {
+        const m = visMap[key];
+        const sec = document.getElementById(m.sec);
+        const card = document.getElementById(m.card);
+        const dot = document.getElementById(m.dot);
+        const lbl = document.getElementById(m.lbl);
+        if (!sec || !card || !dot || !lbl) return;
+        if (settings[key]) {
+          sec.classList.remove('hidden-section');
+          card.innerHTML = m.content;
+          dot.classList.add('status-on'); dot.classList.remove('status-off');
+          lbl.textContent = 'Visible';
+        } else {
+          sec.classList.add('hidden-section');
+          card.innerHTML = '<div class="hidden-notice">This section is hidden by administrator</div>';
+          dot.classList.add('status-off'); dot.classList.remove('status-on');
+          lbl.textContent = 'Hidden by Admin';
+        }
+      });
+    }
+
+    function toggleSetting(el) { const key = el.dataset.key; settings[key] = !settings[key]; localStorage.setItem('pcaSettings', JSON.stringify(settings)); applySettings(); }
+    function switchTab(id) { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); event.target.classList.add('active'); document.getElementById(id).classList.add('active'); if (id === 'admin') { document.getElementById('admin-main').style.display = 'block'; document.getElementById('admin-profile').style.display = 'none'; } }
+    function switchSubTab(view, id) { const parent = document.getElementById(view === 'tl' ? 'teamlead' : 'admin'); parent.querySelectorAll('.subtab').forEach(t => t.classList.remove('active')); event.target.classList.add('active'); parent.querySelectorAll('.subview').forEach(s => s.classList.remove('active')); document.getElementById(view + '-' + id).classList.add('active'); }
+    function toggleDetail(id) { document.getElementById(id).classList.toggle('open'); }
+
+    function filterTLZone() {
+      const zone = document.getElementById('tl-zone').value;
+      document.querySelectorAll('#teamlead .zone-row').forEach(r => { r.style.display = (zone === 'all' || r.classList.contains(zone)) ? '' : 'none'; });
+      const data = { all: { docs: 5, consults: 901, audits: 581, rating: '3.9', slot: '91.2%', dial: '2.5', rx: '10.2%', ces: '3.9', css: '4.0' }, green: { docs: 2, consults: 404, audits: 258, rating: '4.4', slot: '96.1%', dial: '2.8', rx: '4.5%', ces: '4.4', css: '4.4' }, yellow: { docs: 1, consults: 165, audits: 95, rating: '3.8', slot: '88.5%', dial: '2.4', rx: '13.1%', ces: '3.7', css: '3.9' }, red: { docs: 2, consults: 332, audits: 228, rating: '3.2', slot: '75.2%', dial: '1.9', rx: '20.4%', ces: '3.2', css: '3.3' } };
+      const d = data[zone];
+      document.getElementById('tl-summary').style.display = zone === 'all' ? 'none' : 'block';
+      document.getElementById('tl-summary').innerHTML = zone === 'all' ? '' : `<strong>${zone.charAt(0).toUpperCase() + zone.slice(1)} Zone:</strong> ${d.docs} doctors, ${d.consults} consultations, ${d.audits} audits`;
+      document.getElementById('tl-docs').textContent = d.docs; document.getElementById('tl-docs2').textContent = d.docs;
+      document.getElementById('tl-consults').textContent = d.consults; document.getElementById('tl-audits').textContent = d.audits;
+      document.getElementById('tl-slot').innerHTML = `<span class="${zone==='red'?'zone-red':zone==='yellow'?'zone-yellow':'zone-green'}">${d.slot}</span>`;
+      document.getElementById('tl-dial').innerHTML = `<span class="${zone==='red'?'zone-red':'zone-green'}">${d.dial}</span>`;
+      document.getElementById('tl-rx').innerHTML = `<span class="${zone==='red'?'zone-red':zone==='yellow'?'zone-yellow':'zone-green'}">${d.rx}</span>`;
+      document.getElementById('tl-ces').textContent = d.ces; document.getElementById('tl-css').textContent = d.css;
+      document.getElementById('tl-final').innerHTML = `<span class="badge badge-${zone==='all'?'yellow':zone}">${d.rating}</span>`;
+    }
+
+    function filterAdminZone() {
+      const zone = document.getElementById('admin-zone').value;
+      const orgData = { all: { docs: 87, consults: '12,450', audits: '8,812', rating: '3.9', green: 52, yellow: 23, red: 12, gPct: '59.8%', yPct: '26.4%', rPct: '13.8%' }, green: { docs: 52, consults: '7,540', audits: '5,320', rating: '4.3', green: 52, yellow: 0, red: 0, gPct: '100%', yPct: '0%', rPct: '0%' }, yellow: { docs: 23, consults: '3,210', audits: '2,280', rating: '3.7', green: 0, yellow: 23, red: 0, gPct: '0%', yPct: '100%', rPct: '0%' }, red: { docs: 12, consults: '1,700', audits: '1,212', rating: '3.2', green: 0, yellow: 0, red: 12, gPct: '0%', yPct: '0%', rPct: '100%' } };
+      const o = orgData[zone];
+      document.getElementById('admin-summary').style.display = zone === 'all' ? 'none' : 'block';
+      document.getElementById('admin-summary').innerHTML = zone === 'all' ? '' : `<strong>${zone.charAt(0).toUpperCase() + zone.slice(1)} Zone:</strong> ${o.docs} doctors, ${o.consults} consultations, ${o.audits} audits, Rating: ${o.rating}`;
+      document.getElementById('admin-docs').textContent = o.docs; document.getElementById('admin-consults').textContent = o.consults; document.getElementById('admin-audits').textContent = o.audits; document.getElementById('admin-rating').textContent = o.rating;
+      document.getElementById('admin-green').textContent = o.green; document.getElementById('admin-yellow').textContent = o.yellow; document.getElementById('admin-red').textContent = o.red;
+      document.getElementById('admin-green-pct').textContent = o.gPct; document.getElementById('admin-yellow-pct').textContent = o.yPct; document.getElementById('admin-red-pct').textContent = o.rPct;
+      document.getElementById('hyg-label').textContent = zone === 'all' ? '' : `(${zone.charAt(0).toUpperCase() + zone.slice(1)} zone doctors)`;
+      document.getElementById('qual-label').textContent = zone === 'all' ? '' : `(${zone.charAt(0).toUpperCase() + zone.slice(1)} zone doctors)`;
+      document.getElementById('red-section').style.display = (zone === 'all' || zone === 'red') ? 'block' : 'none';
+    }
+
+    function showProfile(name, id, tl, initials, rating, consults, audits, ces, css, reason) {
+      document.getElementById('admin-main').style.display = 'none';
+      document.getElementById('admin-profile').style.display = 'block';
+      document.getElementById('p-avatar').textContent = initials;
+      document.getElementById('p-name').textContent = 'Dr. ' + name;
+      document.getElementById('p-id').textContent = id + ' • Team Lead: Dr. ' + tl;
+      document.getElementById('p-reason').textContent = reason;
+      document.getElementById('p-rating').textContent = rating;
+      document.getElementById('p-consults').textContent = consults;
+      document.getElementById('p-audits').textContent = audits;
+      document.getElementById('p-ces').textContent = ces;
+      document.getElementById('p-css').textContent = css;
+      document.getElementById('p-tl').textContent = 'Dr. ' + tl;
+      document.getElementById('p-doc-name').textContent = 'Dr. ' + name;
+      document.getElementById('p-doc-id').textContent = id;
+      document.getElementById('p-doc-consults').textContent = consults;
+      document.getElementById('p-q-tl').textContent = 'Dr. ' + tl;
+      document.getElementById('p-q-name').textContent = 'Dr. ' + name;
+      document.getElementById('p-q-id').textContent = id;
+      document.getElementById('p-q-audits').textContent = audits;
+      document.getElementById('p-q-ces').textContent = ces;
+      document.getElementById('p-q-css').textContent = css;
+      document.getElementById('p-q-final').innerHTML = `<span class="badge badge-red">${rating}</span>`;
+      document.getElementById('p-wow-name').textContent = 'Dr. ' + name;
+      document.getElementById('p-wow-id').textContent = id;
+      document.getElementById('p-call-name').textContent = 'Dr. ' + name + ' (' + id + ')';
+    }
+
+    function hideProfile() { document.getElementById('admin-main').style.display = 'block'; document.getElementById('admin-profile').style.display = 'none'; }
+
+    applySettings();
+  </script>
+</body>
+</html>
